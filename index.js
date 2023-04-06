@@ -3,7 +3,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 require("dotenv").config();
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 
 // use all the middleware
@@ -40,6 +40,7 @@ async function run() {
     const appointmentOptionCollection = client.db("revision_content_serverside").collection("AppointmentOptions");
     const bookingsCollection = client.db("revision_content_serverside").collection("Bookings");
     const usersCollection = client.db("revision_content_serverside").collection("Users");
+    const doctorsCollection = client.db("revision_content_serverside").collection("Doctors");
 
     // get all the data from the database availableAppointment.js
     app.get("/appointmentOptions", async(req,res) => {
@@ -83,7 +84,7 @@ async function run() {
         if(email !== decodedEmail) {
             return res.status(403).send({message: "Forbidden Access"})
         }
-        console.log(decodedEmail);
+        // console.log(decodedEmail);
         const query = {email:email};
         const bookings = await bookingsCollection.find(query).toArray();
         res.send(bookings);
@@ -96,7 +97,7 @@ async function run() {
         res.send(result);
     });
 
-    // google Login.js and SignUp.js
+    // Continue With Google Button Login.js and SignUp.js
     app.put("/users/:email", async(req,res) => {
         const email = req.params.email;
         const updateUser = req.body;
@@ -114,12 +115,7 @@ async function run() {
           res.send(result);
     });
 
-    // get all the users on the AllUsers.js
-    app.get("/users", async(req,res) => {
-        const query = {};
-        const cursor = await usersCollection.find(query).toArray();
-        res.send(cursor)
-    })
+    
 
     // create a jsonwebtoken
     app.get("/jwt", async(req,res) => {
@@ -131,6 +127,80 @@ async function run() {
             return res.send({accessToken:token})
         }
         res.status(403).send({accessToken : "Forbidden Access"})
+    });
+
+    // get all the users on the AllUsers.js
+    app.get("/users", async(req,res) => {
+        const query = {};
+        const cursor = await usersCollection.find(query).toArray();
+        res.send(cursor)
+    })
+
+    // make admin api on AllUsers.js
+    app.put("/users/admin/:id", verifyJWT , async(req,res) => {
+        const decodedEmail = req.decoded.email;
+        const query = {email:decodedEmail};
+        const user = await usersCollection.findOne(query);
+        if(user?.role !== "admin") {
+            return res.status(403).send({message: "Forbidden Access"})
+        }
+        const id = req.params.id;
+        const filter = {_id : new ObjectId(id)};
+        const options = {upsert:true};
+        const updateDoc = {
+            $set : {
+                role: "admin",
+            }
+        }
+        const result = await usersCollection.updateOne(filter,updateDoc,options);
+        // console.log(result);
+        res.send(result);
+    });
+
+    // delete admin api on AllUsers.js
+    app.delete("/users/admin/:id", verifyJWT, async(req,res) => {
+        const decodedEmail = req.decoded.email;
+        const decodedQuery = {email:decodedEmail};
+        const docededUser = await usersCollection.findOne(decodedQuery);
+        if(docededUser?.role !== "admin") {
+            return res.status(403).send({message: "Forbidden Access"})
+        }
+        const id = req.params.id;
+        const query = {_id : new ObjectId(id)};
+        const result = await usersCollection.deleteOne(query);
+        console.log(result)
+        res.send(result)
+    })
+
+    // check admin And Protect The Router api useAdmin.js
+    app.get("/users/admin/:email", async(req,res) => {
+        const email = req.params.email;
+        const query = {email:email};
+        const user = await usersCollection.findOne(query);
+        res.send({isAdmin: user?.role === "admin"})
+    });
+
+
+    // AddDoctor.js
+    app.get("/appointmentSpecialty", async(req,res) => {
+        const query = {};
+        const result = await appointmentOptionCollection.find(query).project({name:1}).toArray();
+        res.send(result);
+    })
+
+    // Add A Doctor In The Database AddDoctor.js
+    app.post("/doctors", async(req,res) => {
+        const doctor = req.body;
+        const result = await doctorsCollection.insertOne(doctor);
+        console.log(result);
+        res.send(result);
+    });
+
+    // get all the doctors ManageDoctors.js
+    app.get("/doctors", async(req,res) => {
+        const query = {};
+        const result = await doctorsCollection.find(query).toArray();
+        res.send(result);
     })
 
 
