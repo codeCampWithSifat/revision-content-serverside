@@ -42,6 +42,19 @@ async function run() {
     const usersCollection = client.db("revision_content_serverside").collection("Users");
     const doctorsCollection = client.db("revision_content_serverside").collection("Doctors");
 
+
+    // verify Admin Middleware It Will Works After verifyJWT
+    const verifyAdmin = async(req,res,next) => {
+        const decodedEmail = req.decoded.email;
+        const query = {email:decodedEmail};
+        const user = await usersCollection.findOne(query);
+        if(user?.role !== "admin") {
+            return res.status(403).send({message : "Forbidden Access"})
+        }
+        next();
+
+    }
+
     // get all the data from the database availableAppointment.js
     app.get("/appointmentOptions", async(req,res) => {
         const date = req.query.date;
@@ -168,7 +181,7 @@ async function run() {
         const id = req.params.id;
         const query = {_id : new ObjectId(id)};
         const result = await usersCollection.deleteOne(query);
-        console.log(result)
+        // console.log(result)
         res.send(result)
     })
 
@@ -189,17 +202,25 @@ async function run() {
     })
 
     // Add A Doctor In The Database AddDoctor.js
-    app.post("/doctors", async(req,res) => {
+    app.post("/doctors",verifyJWT,verifyAdmin, async(req,res) => {
         const doctor = req.body;
         const result = await doctorsCollection.insertOne(doctor);
-        console.log(result);
+        // console.log(result);
         res.send(result);
     });
 
     // get all the doctors ManageDoctors.js
-    app.get("/doctors", async(req,res) => {
+    app.get("/doctors",verifyJWT,verifyAdmin, async(req,res) => {
         const query = {};
         const result = await doctorsCollection.find(query).toArray();
+        res.send(result);
+    });
+
+    // delete a doctor ManageDoctors.js
+    app.delete("/doctors/:id",verifyJWT,verifyAdmin, async(req,res) => {
+        const id = req.params.id;
+        const query = {_id : new ObjectId(id)};
+        const result = await doctorsCollection.deleteOne(query);
         res.send(result);
     })
 
