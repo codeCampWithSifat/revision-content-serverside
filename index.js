@@ -5,6 +5,8 @@ require("dotenv").config();
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.STRIPE_KEY);
+
 
 // use all the middleware
 app.use(express.json());
@@ -222,7 +224,37 @@ async function run() {
         const query = {_id : new ObjectId(id)};
         const result = await doctorsCollection.deleteOne(query);
         res.send(result);
+    });
+
+    // get a single booking Routes.js inside Loader Function
+    app.get("/bookings/:id", async(req,res) => {
+        const id = req.params.id;
+        const query = {_id : new ObjectId (id)};
+        const booking = await bookingsCollection.findOne(query);
+        res.send(booking);
+    });
+
+
+    // Stripe intregration Code
+    app.post("/create-payment-intent", async(req,res) => {
+        const booking = req.body;
+        const price = booking.price;
+        const amount = price*100 ;
+
+        const paymentIntent = await stripe.paymentIntents.create({
+            currency: "usd",
+            amount: amount,
+            "payment_method_types": [
+                "card"
+              ],
+        });
+
+        res.send({clientSecret: paymentIntent.client_secret,});
+
     })
+
+
+
 
 
 
