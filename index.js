@@ -43,6 +43,7 @@ async function run() {
     const bookingsCollection = client.db("revision_content_serverside").collection("Bookings");
     const usersCollection = client.db("revision_content_serverside").collection("Users");
     const doctorsCollection = client.db("revision_content_serverside").collection("Doctors");
+    const paymentsCollection = client.db("revision_content_serverside").collection("Payments");
 
 
     // verify Admin Middleware It Will Works After verifyJWT
@@ -235,7 +236,7 @@ async function run() {
     });
 
 
-    // Stripe intregration Code
+    // Stripe intregration Code CheckoutForm.js
     app.post("/create-payment-intent", async(req,res) => {
         const booking = req.body;
         const price = booking.price;
@@ -249,10 +250,25 @@ async function run() {
               ],
         });
 
-        res.send({clientSecret: paymentIntent.client_secret,});
+       res.send({clientSecret: paymentIntent.client_secret,});
+    });
 
+    
+    // CheckoutForm.js
+    app.post("/payments", async(req,res) => {
+        const payment = req.body;
+        const result = await paymentsCollection.insertOne(payment);
+        const id = payment.bookingId ;
+        const filter = {_id : new ObjectId(id)} ;
+        const updatedDoc = {
+            $set : {
+                paid : true,
+                transactionId : payment.transactionId
+            }
+        };
+        const updatedResult = await bookingsCollection.updateOne(filter,updatedDoc)
+        res.send(result)
     })
-
 
 
 
